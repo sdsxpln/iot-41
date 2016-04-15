@@ -26,44 +26,99 @@ public:
 	}
 
 	void
-	set(unsigned x, unsigned y)
+	set(unsigned x, unsigned y, bool color)
 	{
 		if (x >= width || y >= height) return;
-		const size_t offset = y * width + x;
+		size_t offset = (y * width + x) * 4;
+		if (offset >= width * height * 2) {
+			offset -= width * height * 2 - 1;
+		}
+		offset += color * 2;
 		buffer_[offset / 8] |= 1 << (offset % 8);
 	}
 
-	bool
-	get(unsigned x, unsigned y)
-	const
-	{
-		if (x >= width || y >= height) return false;
-		const size_t offset = y * width + x;
-		return (buffer_[offset / 8] >> (offset % 8)) & 1;
-	}
-
 	void
-	print(unsigned x, unsigned y, const char* s)
+	print(unsigned x, unsigned y, const char* s, bool color)
 	{
 		for (int i = 0; s[i]; ++i) {
-			print(x + i * 6, y, s[i]);
+			print(x + i * 6, y, s[i], color);
 		}
 	}
 
 	void
-	print(unsigned x, unsigned y, char c)
+	print(unsigned x, unsigned y, char c, bool color)
 	{
 		for (unsigned yy = 0; yy < 7; ++yy) {
 			for (unsigned xx = 0; xx < 5; ++xx) {
 				if (font[(c - 'A') * 7 + yy] & (0x10 >> xx)) {
-					set(x + xx, y + yy);
+					set(x + xx, y + yy, color);
 				}
 			}
 		}
 	}
 
+	class const_iterator {
+	public:
+		const_iterator(const uint8_t* p)
+		: p_(p)
+		, shift_()
+		{}
+
+		const_iterator
+		operator++()
+		{
+			shift_ += 4;
+			if (shift_ == 8) {
+				shift_ = 0;
+				++p_;
+			}
+			return *this;
+		}
+
+		const_iterator
+		operator++(int)
+		{
+			const_iterator result = *this;
+			operator++();
+			return result;
+		}
+
+		unsigned
+		operator*()
+		const
+		{
+			return (*p_ >> shift_) & 15;
+		}
+
+	private:
+		const uint8_t* p_;
+		unsigned shift_;
+	};
+
+	const_iterator
+	begin()
+	const
+	{
+		return const_iterator(buffer_);
+	}
+
+	const_iterator
+	end()
+	const
+	{
+		return const_iterator(buffer_ + sizeof(buffer_));
+	}
+
+	const_iterator
+	beginRow(unsigned y)
+	{
+		return (y < height)
+			? const_iterator(buffer_ + y * width / 2)
+			: end();
+	}
+
 private:
-	uint8_t buffer_[width * height / 8];
+	uint8_t buffer_[width * height / 4];
 	static const uint8_t font[26 * 7];
 };
 
@@ -280,10 +335,12 @@ const uint8_t Bitmap::font[] = {
 class Display {
 public:
 	Display()
-	: nextRowScanned_()
+	: nextRowToScan_()
 	{
-		red_.print(1, 1, "SZERETLEK");
-		green_.print(1, 9, "JULI");
+		bitmap_.print(1, 1, "S", true);
+		bitmap_.print(7, 1, "Z", false);
+//		bitmap_.print(1, 1, "SZERETLEK", true);
+//		bitmap_.print(1, 9, "JULI", false);
 		for (int i = 2; i < 14; ++i) {
 			pinMode(i, OUTPUT);
 			digitalWrite(i, LOW);
@@ -293,27 +350,23 @@ public:
 	void
 	scan()
 	{
-		for (int x = 0; x < 8 * 8; ++x) {
-			unsigned pixel = (PINB & 0xf0);
-			pixel |= green_.get(x, nextRowScanned_);
-			pixel |= green_.get(x, nextRowScanned_ + 16) << 1;
-			pixel |= red_.get(x, nextRowScanned_) << 2;
-			pixel |= red_.get(x, nextRowScanned_ + 16) << 3;
+		Bitmap::const_iterator i = bitmap_.beginRow(nextRowToScan_);
+		for (int x = 0; x < 64; ++x) {
 			digitalWrite(clk, LOW);
-			PORTB = pixel;
+			PORTB = (PINB & 0xf0) | *i++;
 			digitalWrite(clk, HIGH);
 		}
 		digitalWrite(oe, HIGH);
-		PORTD = (PIND & B11000011) | (nextRowScanned_ << 2);
+		PORTD = (PIND & B11000011) | (nextRowToScan_ << 2);
 		digitalWrite(lat, HIGH);
 		digitalWrite(lat, LOW);
 		digitalWrite(oe, LOW);
-		nextRowScanned_ = (nextRowScanned_ + 1) & 0xf;
+		nextRowToScan_ = (nextRowToScan_ + 1) & 0xf;
 	}
 
 private:
-	unsigned nextRowScanned_;
-	Bitmap red_, green_;
+	unsigned nextRowToScan_;
+	Bitmap bitmap_;
 };
 
 static Display disp;
