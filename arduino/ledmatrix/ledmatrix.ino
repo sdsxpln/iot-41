@@ -1,3 +1,5 @@
+#include "font5x7.h"
+
 const int la = 2;
 const int lb = 3;
 const int lc = 4;
@@ -37,24 +39,54 @@ public:
 		buffer_[offset / 8] |= 1 << (offset % 8);
 	}
 
-	void
-	print(unsigned x, unsigned y, const char* s, bool color)
+	unsigned
+	print(unsigned x, unsigned y, bool color, const char* s)
 	{
+		unsigned w = 0;
 		for (int i = 0; s[i]; ++i) {
-			print(x + i * 6, y, s[i], color);
+			w += print(x + w, y, color, s[i]);
 		}
+		return w;
 	}
 
-	void
-	print(unsigned x, unsigned y, char c, bool color)
+	unsigned
+	print(unsigned x0, unsigned y0, bool color, char c)
 	{
-		for (unsigned yy = 0; yy < 7; ++yy) {
-			for (unsigned xx = 0; xx < 5; ++xx) {
-				if (font[(c - 'A') * 7 + yy] & (0x10 >> xx)) {
-					set(x + xx, y + yy, color);
+		if (c < 33 || c > 95) return 3;
+		const unsigned w = getWidthOf(c);
+		for (unsigned y = 0; y < 7; ++y) {
+			for (unsigned x = 0; x < w; ++x) {
+				if (font5x7[(c - 33) * 7 + y] & (1 << (w - (x + 1)))) {
+					set(x0 + x, y0 + y, color);
 				}
 			}
 		}
+		return w + 1;
+	}
+
+	unsigned
+	printf(unsigned x0, unsigned y0, bool color, const char* fmt, ...)
+	{
+		va_list ap;
+		va_start(ap, fmt);
+		char buf[32];
+		vsnprintf(buf, sizeof(buf), fmt, ap);
+		va_end(ap);
+		return print(x0, y0, color, buf);
+	}
+
+	unsigned
+	getWidthOf(char c)
+	{
+		if (c < 33 || c > 95) return 0;
+		for (unsigned x = 0; x < 8; ++x) {
+			for (unsigned y = 0; y < 7; ++y) {
+				if (font5x7[(c - 33) * 7 + y] & (0x80 >> x)) {
+					return 8 - x;
+				}
+			}
+		}
+		return 0;
 	}
 
 	class const_iterator {
@@ -112,224 +144,13 @@ public:
 	const_iterator
 	beginRow(unsigned y)
 	{
-		return (y < height)
+		return (y < height / 2)
 			? const_iterator(buffer_ + y * width / 2)
 			: end();
 	}
 
 private:
 	uint8_t buffer_[width * height / 4];
-	static const uint8_t font[26 * 7];
-};
-
-const uint8_t Bitmap::font[] = {
-	  0b01110
-	, 0b10001
-	, 0b10001
-	, 0b11111
-	, 0b10001
-	, 0b10001
-	, 0b10001
-
-	, 0b11110
-	, 0b10001
-	, 0b10001
-	, 0b11110
-	, 0b10001
-	, 0b10001
-	, 0b11110
-
-	, 0b01110
-	, 0b10001
-	, 0b10000
-	, 0b10000
-	, 0b10000
-	, 0b10001
-	, 0b01110
-
-	, 0b11110
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b11110
-
-	, 0b11111
-	, 0b10000
-	, 0b10000
-	, 0b11110
-	, 0b10000
-	, 0b10000
-	, 0b11111
-
-	, 0b11111
-	, 0b10000
-	, 0b10000
-	, 0b11110
-	, 0b10000
-	, 0b10000
-	, 0b10000
-
-	, 0b01110
-	, 0b10001
-	, 0b10000
-	, 0b10000
-	, 0b10011
-	, 0b10001
-	, 0b01110
-
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b11111
-	, 0b10001
-	, 0b10001
-	, 0b10001
-
-	, 0b01110
-	, 0b00100
-	, 0b00100
-	, 0b00100
-	, 0b00100
-	, 0b00100
-	, 0b01110
-
-	, 0b00001
-	, 0b00001
-	, 0b00001
-	, 0b00001
-	, 0b10001
-	, 0b10001
-	, 0b01110
-
-	, 0b10001
-	, 0b10010
-	, 0b10100
-	, 0b11000
-	, 0b10100
-	, 0b10010
-	, 0b10001
-
-	, 0b10000
-	, 0b10000
-	, 0b10000
-	, 0b10000
-	, 0b10000
-	, 0b10000
-	, 0b11111
-
-	, 0b10001
-	, 0b11011
-	, 0b10101
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b10001
-
-	, 0b10001
-	, 0b11001
-	, 0b10101
-	, 0b10011
-	, 0b10001
-	, 0b10001
-	, 0b10001
-
-	, 0b01110
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b01110
-
-	, 0b11110
-	, 0b10001
-	, 0b10001
-	, 0b11110
-	, 0b10000
-	, 0b10000
-	, 0b10000
-
-	, 0b01110
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b10101
-	, 0b10011
-	, 0b01111
-
-	, 0b11110
-	, 0b10001
-	, 0b10001
-	, 0b11110
-	, 0b10001
-	, 0b10001
-	, 0b10001
-
-	, 0b01110
-	, 0b10001
-	, 0b10000
-	, 0b01110
-	, 0b00001
-	, 0b10001
-	, 0b01110
-
-	, 0b11111
-	, 0b00100
-	, 0b00100
-	, 0b00100
-	, 0b00100
-	, 0b00100
-	, 0b00100
-
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b01110
-
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b01010
-	, 0b00100
-
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b10001
-	, 0b10101
-	, 0b10101
-	, 0b01010
-
-	, 0b10001
-	, 0b10001
-	, 0b01010
-	, 0b00100
-	, 0b01010
-	, 0b10001
-	, 0b10001
-
-	, 0b10001
-	, 0b10001
-	, 0b01010
-	, 0b00100
-	, 0b00100
-	, 0b00100
-	, 0b00100
-
-	, 0b11111
-	, 0b00001
-	, 0b00010
-	, 0b00100
-	, 0b01000
-	, 0b10000
-	, 0b11111
 };
 
 class Display {
@@ -337,10 +158,6 @@ public:
 	Display()
 	: nextRowToScan_()
 	{
-		bitmap_.print(1, 1, "S", true);
-		bitmap_.print(7, 1, "Z", false);
-//		bitmap_.print(1, 1, "SZERETLEK", true);
-//		bitmap_.print(1, 9, "JULI", false);
 		for (int i = 2; i < 14; ++i) {
 			pinMode(i, OUTPUT);
 			digitalWrite(i, LOW);
@@ -364,6 +181,8 @@ public:
 		nextRowToScan_ = (nextRowToScan_ + 1) & 0xf;
 	}
 
+	Bitmap& bitmap() { return bitmap_; }
+
 private:
 	unsigned nextRowToScan_;
 	Bitmap bitmap_;
@@ -376,5 +195,14 @@ void setup() {}
 void
 loop()
 {
+	static unsigned long last = 0;
+	static unsigned ctr = 0;
+	if (millis() > last + 100) {
+		last = millis();
+		disp.bitmap().clear();
+		disp.bitmap().print(1, 1, false, 32 + (ctr & 63));
+		disp.bitmap().printf(1, 9, true, "%lu.%lu", last / 1000, (last / 100) % 10);
+		++ctr;
+	}
 	disp.scan();
 }
