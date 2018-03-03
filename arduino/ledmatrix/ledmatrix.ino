@@ -54,9 +54,11 @@ public:
 	{
 		if (c < 33 || c > 95) return 3;
 		const unsigned w = getWidthOf(c);
-		for (unsigned y = 0; y < 7; ++y) {
-			for (unsigned x = 0; x < w; ++x) {
-				if (font5x7[(c - 33) * 7 + y] & (1 << (w - (x + 1)))) {
+		const uint8_t* bm = font5x7 + (c - 33) * 7;
+		for (unsigned y = 0; y < 7; ++y, ++bm) {
+			unsigned mask = 1 << (w - 1);
+			for (unsigned x = 0; x < w; ++x, mask >>= 1) {
+				if (*bm & mask) {
 					set(x0 + x, y0 + y, color);
 				}
 			}
@@ -79,9 +81,10 @@ public:
 	getWidthOf(char c)
 	{
 		if (c < 33 || c > 95) return 0;
+		const uint8_t *const bm = font5x7 + (c - 33) * 7;
 		for (unsigned x = 0; x < 8; ++x) {
 			for (unsigned y = 0; y < 7; ++y) {
-				if (font5x7[(c - 33) * 7 + y] & (0x80 >> x)) {
+				if (bm[y] & (0x80 >> x)) {
 					return 8 - x;
 				}
 			}
@@ -200,7 +203,8 @@ loop()
 	if (millis() > last + 100) {
 		last = millis();
 		disp.bitmap().clear();
-		disp.bitmap().print(1, 1, false, 32 + (ctr & 63));
+		const int c = 32 + (ctr & 63);
+		disp.bitmap().printf(1, 1, false, "%02d:  %c", c, c);
 		disp.bitmap().printf(1, 9, true, "%lu.%lu", last / 1000, (last / 100) % 10);
 		++ctr;
 	}
