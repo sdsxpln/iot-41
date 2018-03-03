@@ -3,8 +3,12 @@ tm1637.init(4, 3)
 tm1637.set_brightness(7)
 m = mqtt.Client(node.chipid(), 120)
 m:on("message", function(client, topic, data)
+	if data == olddata then
+		return
+	end
+	olddata = data
+	tm1637.clear()
 	if data ~= nil then
-		tm1637.clear()
 		tm1637.write_string(data)
 	end
 end)
