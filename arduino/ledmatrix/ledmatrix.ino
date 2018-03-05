@@ -4,7 +4,7 @@ const int la = 2;
 const int lb = 3;
 const int lc = 4;
 const int ld = 5;
-const int lat = 6; // st_cp
+const int lat = 6; // st_cp | stb
 const int clk = 7; // sh_cp
 const int g1 = 8;
 const int g2 = 9;
@@ -172,15 +172,21 @@ public:
 	{
 		Bitmap::const_iterator i = bitmap_.beginRow(nextRowToScan_);
 		for (int x = 0; x < 64; ++x) {
-			digitalWrite(clk, LOW);
+//			digitalWrite(clk, LOW);
+			PORTD &= 0x7f;
 			PORTB = (PINB & 0xf0) | *i++;
-			digitalWrite(clk, HIGH);
+//			digitalWrite(clk, HIGH);
+			PORTD |= 0x80;
 		}
-		digitalWrite(oe, HIGH);
+//		digitalWrite(oe, HIGH);
+		PORTB |= 0x20;
 		PORTD = (PIND & B11000011) | (nextRowToScan_ << 2);
-		digitalWrite(lat, HIGH);
-		digitalWrite(lat, LOW);
-		digitalWrite(oe, LOW);
+//		digitalWrite(lat, HIGH);
+		PORTD |= 0x40;
+//		digitalWrite(lat, LOW);
+		PORTD &= 0xbf;
+//		digitalWrite(oe, LOW);
+		PORTB &= 0xdf;
 		nextRowToScan_ = (nextRowToScan_ + 1) & 0xf;
 	}
 
@@ -191,14 +197,27 @@ private:
 	Bitmap bitmap_;
 };
 
-static Display disp;
+//static Display disp;
 
-void setup() {}
+void
+setup()
+{
+	pinMode(lat, OUTPUT);
+	digitalWrite(lat, LOW);
+	pinMode(clk, OUTPUT);
+	digitalWrite(clk, HIGH);
+	pinMode(oe, OUTPUT);
+	digitalWrite(oe, LOW);
+	pinMode(g1, OUTPUT);
+	digitalWrite(g1, LOW);
+	pinMode(la, OUTPUT);
+	digitalWrite(la, LOW);
+}
 
 void
 loop()
 {
-	static unsigned long last = 0;
+/*	static unsigned long last = 0;
 	static unsigned ctr = 0;
 	if (millis() > last + 100) {
 		last = millis();
@@ -208,5 +227,24 @@ loop()
 		disp.bitmap().printf(1, 9, true, "%lu.%lu", last / 1000, (last / 100) % 10);
 		++ctr;
 	}
-	disp.scan();
+	disp.scan();*/
+	static int y = 0;
+	for (int x = 0; x < 64; ++x) {
+//		digitalWrite(clk, LOW);
+		PORTD &= 0x7f;
+//		digitalWrite(g1, i == j);
+		PORTB = (PINB & 0xf0) | 1;
+//		digitalWrite(clk, HIGH);
+		PORTD |= 0x80;
+	}
+//	digitalWrite(oe, HIGH);
+	PORTB |= 0x20;
+	PORTD = (PIND & B11000011) | (y << 2);
+//	digitalWrite(lat, HIGH);
+	PORTD |= 0x40;
+//	digitalWrite(lat, LOW);
+	PORTD &= 0xbf;
+//	digitalWrite(oe, LOW);
+	PORTB &= 0xdf;
+	y = (y + 1) & 1;
 }
