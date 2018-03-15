@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 const uint8_t font5x7[] = {
 	  0b1
 	, 0b1

@@ -1,4 +1,10 @@
 #include "font5x7.h"
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include <avr/pgmspace.h>
 
 //portd:0-7
 //portb:8-15
@@ -170,10 +176,8 @@ public:
 	Display()
 	: nextRowToScan_()
 	{
-		for (int i = 2; i < 13; ++i) {
-			pinMode(i, OUTPUT);
-			digitalWrite(i, LOW);
-		}
+		DDRB = 0x1f;
+		DDRD = 0xfc;
 	}
 
 	void
@@ -203,49 +207,23 @@ static Display disp;
 void
 setup()
 {
-/*	pinMode(lat, OUTPUT);
-	digitalWrite(lat, LOW);
-	pinMode(clk, OUTPUT);
-	digitalWrite(clk, HIGH);
-	pinMode(oe, OUTPUT);
-	digitalWrite(oe, LOW);
-	pinMode(g1, OUTPUT);
-	digitalWrite(g1, LOW);
-	pinMode(la, OUTPUT);
-	digitalWrite(la, LOW);*/
+	const int c = 'A';
+	disp.bitmap().printf(1, 1, false, "HELLO %02d:  %c", c, c);
+	const int last = 42;
+	disp.bitmap().printf(1, 13, true, "%lu.%lu", last / 1000, (last / 100) % 10);
 }
 
 void
 loop()
 {
-	static unsigned long last = 0;
-	static unsigned ctr = 0;
-	if (millis() > last + 100) {
-		last = millis();
-		disp.bitmap().clear();
-		const int c = 32 + (ctr & 63);
-		disp.bitmap().printf(1, 1, false, "%02d:  %c", c, c);
-		disp.bitmap().printf(1, 13, true, "%lu.%lu", last / 1000, (last / 100) % 10);
-		++ctr;
-	}
 	disp.scan();
-/*	static int y = 0;
-	for (int x = 0; x < 64; ++x) {
-//		digitalWrite(clk, LOW); // clk(12)
-		PORTB &= 0xef;
-//		digitalWrite(g1, i == j); // g1(8) g2(9) r1(10) r2(11)
-		PORTB = (PINB & 0xf0) | 1;
-//		digitalWrite(clk, HIGH); // clk(12)
-		PORTB |= 0x10;
+}
+
+int
+main()
+{
+	setup();
+	for (;;) {
+		loop();
 	}
-//	digitalWrite(oe, HIGH); // oe(7)
-	PORTD |= 0x80;
-	PORTD = (PIND & B11000011) | (y << 2); // la(2) lb(3) lc(4) ld(5)
-//	digitalWrite(lat, HIGH); // lat(6)
-	PORTD |= 0x40;
-//	digitalWrite(lat, LOW); // lat(6)
-	PORTD &= 0xbf;
-//	digitalWrite(oe, LOW); // oe(7)
-	PORTD &= 0x7f;
-	y = (y + 1) & 1;*/
 }
