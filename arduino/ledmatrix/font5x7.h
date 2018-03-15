@@ -1,6 +1,4 @@
-#include <stdint.h>
-
-const uint8_t font5x7[] = {
+static const unsigned char font5x7[] = {
 	  0b1
 	, 0b1
 	, 0b1

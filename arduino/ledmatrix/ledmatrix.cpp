@@ -1,4 +1,4 @@
-#include "font5x7.h"
+#include "font3x5.h"
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -30,6 +30,7 @@ const int clk = 12; // sh_cp
 class Bitmap {
 public:
 	enum { width = 64, height = 32 };
+	enum Color { black, red, green, yellow };
 
 	Bitmap()
 	{
@@ -43,68 +44,56 @@ public:
 	}
 
 	void
-	set(unsigned x, unsigned y, bool color)
+	set(int x, int y, Color c)
 	{
-		if (x >= width || y >= height) return;
+		if (x < 0 || x >= width || y < 0 || y >= height) return;
 		size_t offset = (y * width + x) * 4;
 		if (offset >= width * height * 2) {
 			offset -= width * height * 2 - 1;
 		}
-		offset += color * 2;
-		buffer_[offset / 8] |= 1 << (offset % 8);
-	}
-
-	unsigned
-	print(unsigned x, unsigned y, bool color, const char* s)
-	{
-		unsigned w = 0;
-		for (int i = 0; s[i]; ++i) {
-			w += print(x + w, y, color, s[i]);
+		if (c & green) {
+			buffer_[offset / 8] |= 1 << (offset % 8);
 		}
-		return w;
+		if (c & red) {
+			offset += 2;
+			buffer_[offset / 8] |= 1 << (offset % 8);
+		}
 	}
 
-	unsigned
-	print(unsigned x0, unsigned y0, bool color, char c)
+	void
+	print(int x, int y, Color c, const char* s)
 	{
-		if (c < 33 || c > 95) return 3;
-		const unsigned w = getWidthOf(c);
-		const uint8_t* bm = font5x7 + (c - 33) * 7;
-		for (unsigned y = 0; y < 7; ++y, ++bm) {
-			unsigned mask = 1 << (w - 1);
-			for (unsigned x = 0; x < w; ++x, mask >>= 1) {
-				if (*bm & mask) {
-					set(x0 + x, y0 + y, color);
+		while (*s) {
+			print(x, y, c, *s++);
+			x += 4;
+		}
+	}
+
+	void
+	print(int x0, int y0, Color c, char ch)
+	{
+		if (ch < 32 || ch > 96) return;
+		const uint8_t* bm = font3x5 + (ch - 32) / 2;
+		for (int y = 0; y < 5; ++y) {
+			const uint8_t line = pgm_read_byte(bm) >> ((!(ch & 1)) * 4);
+			bm += 64 / 2;
+			for (int x = 0; x < 3; ++x) {
+				if (line & (1 << (3 - x))) {
+					set(x0 + x, y0 + y, c);
 				}
 			}
 		}
-		return w + 1;
 	}
 
-	unsigned
-	printf(unsigned x0, unsigned y0, bool color, const char* fmt, ...)
+	void
+	printf(int x0, int y0, Color c, const char* fmt, ...)
 	{
 		va_list ap;
 		va_start(ap, fmt);
 		char buf[32];
 		vsnprintf(buf, sizeof(buf), fmt, ap);
 		va_end(ap);
-		return print(x0, y0, color, buf);
-	}
-
-	unsigned
-	getWidthOf(char c)
-	{
-		if (c < 33 || c > 95) return 0;
-		const uint8_t *const bm = font5x7 + (c - 33) * 7;
-		for (unsigned x = 0; x < 8; ++x) {
-			for (unsigned y = 0; y < 7; ++y) {
-				if (bm[y] & (0x80 >> x)) {
-					return 8 - x;
-				}
-			}
-		}
-		return 0;
+		print(x0, y0, c, buf);
 	}
 
 	class const_iterator {
@@ -213,7 +202,7 @@ ISR(TIMER1_COMPA_vect) { // 16-bit timer: millisecond interrupts
 	++counter;
 }
 
-void
+static void
 setup()
 {
 	TCCR1B = (1 << WGM12) | (1 << CS11);
@@ -226,13 +215,22 @@ setup()
 }
 
 static void
+futar_print_line(int y, int num, const char* station, int mins)
+{
+	disp.bitmap().printf(0, y, Bitmap::red, "%3d", num);
+	disp.bitmap().printf(3 * 4, y, Bitmap::green, station);
+	disp.bitmap().printf(14 * 4, y, Bitmap::yellow, "%2d", mins);
+}
+
+static void
 loop()
 {
-	const long i = counter / 100;
-	const int c = 32 + (i & 63);
 	disp.bitmap().clear();
-	disp.bitmap().printf(1, 1, false, "HELLO %02d:  %c", c, c);
-	disp.bitmap().printf(1, 13, true, "%d", i);
+	futar_print_line(1, 244, "ORS VEZER T", 7);
+	futar_print_line(7, 144, "ORS VEZER T", 12);
+	futar_print_line(13, 244, "ORS VEZER T", 13);
+	futar_print_line(19, 46, "NYIRPALOTA", 20);
+	futar_print_line(25, 244, "ORS VEZER T", 25);
 	disp.swap();
 }
 
