@@ -183,7 +183,7 @@ public:
 	void
 	scan()
 	{
-		Bitmap::const_iterator i = bitmap_.beginRow(nextRowToScan_);
+		Bitmap::const_iterator i = bitmap_[active_].beginRow(nextRowToScan_);
 		for (int x = 0; x < 64; ++x) {
 			const uint8_t value = *i++;
 			PORTB = value; // clk=LOW
@@ -195,28 +195,45 @@ public:
 		nextRowToScan_ = (nextRowToScan_ + 1) & 0xf;
 	}
 
-	Bitmap& bitmap() { return bitmap_; }
+	Bitmap& bitmap() { return bitmap_[1 - active_]; }
+
+	void swap() { active_ = 1 - active_; }
 
 private:
 	unsigned nextRowToScan_;
-	Bitmap bitmap_;
+	Bitmap bitmap_[2];
+	int active_{};
 };
 
 static Display disp;
+static long counter;
+
+ISR(TIMER1_COMPA_vect) { // 16-bit timer: millisecond interrupts
+	disp.scan();
+	++counter;
+}
 
 void
 setup()
 {
-	const int c = 'A';
-	disp.bitmap().printf(1, 1, false, "HELLO %02d:  %c", c, c);
-	const int last = 42;
-	disp.bitmap().printf(1, 13, true, "%lu.%lu", last / 1000, (last / 100) % 10);
+	TCCR1B = (1 << WGM12) | (1 << CS11);
+	const uint16_t ctc_match_overflow = F_CPU / 1000 / 8;
+	OCR1AH = ctc_match_overflow >> 8;
+	OCR1AL = ctc_match_overflow & 255;
+
+	TIMSK1 = 1 << OCIE1A;
+	sei();
 }
 
-void
+static void
 loop()
 {
-	disp.scan();
+	const long i = counter / 100;
+	const int c = 32 + (i & 63);
+	disp.bitmap().clear();
+	disp.bitmap().printf(1, 1, false, "HELLO %02d:  %c", c, c);
+	disp.bitmap().printf(1, 13, true, "%d", i);
+	disp.swap();
 }
 
 int
