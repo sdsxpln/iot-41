@@ -1,16 +1,25 @@
 #include "font5x7.h"
 
+//portd:0-7
+//portb:8-15
+
+// slow portd
 const int la = 2;
 const int lb = 3;
 const int lc = 4;
 const int ld = 5;
 const int lat = 6; // st_cp | stb
-const int clk = 7; // sh_cp
+const int oe = 7;
+
+// fast portb
 const int g1 = 8;
 const int g2 = 9;
 const int r1 = 10;
 const int r2 = 11;
-const int oe = 13;
+const int clk = 12; // sh_cp
+
+// oe 13 -> 7
+// clk 7 -> 12
 
 class Bitmap {
 public:
@@ -161,7 +170,7 @@ public:
 	Display()
 	: nextRowToScan_()
 	{
-		for (int i = 2; i < 14; ++i) {
+		for (int i = 2; i < 13; ++i) {
 			pinMode(i, OUTPUT);
 			digitalWrite(i, LOW);
 		}
@@ -172,21 +181,13 @@ public:
 	{
 		Bitmap::const_iterator i = bitmap_.beginRow(nextRowToScan_);
 		for (int x = 0; x < 64; ++x) {
-//			digitalWrite(clk, LOW);
-			PORTD &= 0x7f;
-			PORTB = (PINB & 0xf0) | *i++;
-//			digitalWrite(clk, HIGH);
-			PORTD |= 0x80;
+			const uint8_t value = *i++;
+			PORTB = value; // clk=LOW
+			PORTB = 0x10 | value; // clk=HIGH
 		}
-//		digitalWrite(oe, HIGH);
-		PORTB |= 0x20;
-		PORTD = (PIND & B11000011) | (nextRowToScan_ << 2);
-//		digitalWrite(lat, HIGH);
-		PORTD |= 0x40;
-//		digitalWrite(lat, LOW);
-		PORTD &= 0xbf;
-//		digitalWrite(oe, LOW);
-		PORTB &= 0xdf;
+		const uint8_t value = (nextRowToScan_ << 2);
+		PORTD = 0xc0 | value; // oe=HIGH lat=HIGH
+		PORTD = value; // oe=LOW lat=LOW
 		nextRowToScan_ = (nextRowToScan_ + 1) & 0xf;
 	}
 
@@ -197,12 +198,12 @@ private:
 	Bitmap bitmap_;
 };
 
-//static Display disp;
+static Display disp;
 
 void
 setup()
 {
-	pinMode(lat, OUTPUT);
+/*	pinMode(lat, OUTPUT);
 	digitalWrite(lat, LOW);
 	pinMode(clk, OUTPUT);
 	digitalWrite(clk, HIGH);
@@ -211,40 +212,40 @@ setup()
 	pinMode(g1, OUTPUT);
 	digitalWrite(g1, LOW);
 	pinMode(la, OUTPUT);
-	digitalWrite(la, LOW);
+	digitalWrite(la, LOW);*/
 }
 
 void
 loop()
 {
-/*	static unsigned long last = 0;
+	static unsigned long last = 0;
 	static unsigned ctr = 0;
 	if (millis() > last + 100) {
 		last = millis();
 		disp.bitmap().clear();
 		const int c = 32 + (ctr & 63);
 		disp.bitmap().printf(1, 1, false, "%02d:  %c", c, c);
-		disp.bitmap().printf(1, 9, true, "%lu.%lu", last / 1000, (last / 100) % 10);
+		disp.bitmap().printf(1, 13, true, "%lu.%lu", last / 1000, (last / 100) % 10);
 		++ctr;
 	}
-	disp.scan();*/
-	static int y = 0;
+	disp.scan();
+/*	static int y = 0;
 	for (int x = 0; x < 64; ++x) {
-//		digitalWrite(clk, LOW);
-		PORTD &= 0x7f;
-//		digitalWrite(g1, i == j);
+//		digitalWrite(clk, LOW); // clk(12)
+		PORTB &= 0xef;
+//		digitalWrite(g1, i == j); // g1(8) g2(9) r1(10) r2(11)
 		PORTB = (PINB & 0xf0) | 1;
-//		digitalWrite(clk, HIGH);
-		PORTD |= 0x80;
+//		digitalWrite(clk, HIGH); // clk(12)
+		PORTB |= 0x10;
 	}
-//	digitalWrite(oe, HIGH);
-	PORTB |= 0x20;
-	PORTD = (PIND & B11000011) | (y << 2);
-//	digitalWrite(lat, HIGH);
+//	digitalWrite(oe, HIGH); // oe(7)
+	PORTD |= 0x80;
+	PORTD = (PIND & B11000011) | (y << 2); // la(2) lb(3) lc(4) ld(5)
+//	digitalWrite(lat, HIGH); // lat(6)
 	PORTD |= 0x40;
-//	digitalWrite(lat, LOW);
+//	digitalWrite(lat, LOW); // lat(6)
 	PORTD &= 0xbf;
-//	digitalWrite(oe, LOW);
-	PORTB &= 0xdf;
-	y = (y + 1) & 1;
+//	digitalWrite(oe, LOW); // oe(7)
+	PORTD &= 0x7f;
+	y = (y + 1) & 1;*/
 }
