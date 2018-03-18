@@ -10,7 +10,7 @@ CPPFLAGS += -Os
 CPPFLAGS += -g
 
 .PHONY: all
-all: ledmatrix.hex
+all: ledmatrix.hex poc
 
 ledmatrix: CC := avr-gcc
 ledmatrix: CXX := avr-g++
@@ -26,8 +26,21 @@ ledmatrix.hex: ledmatrix
 
 .PHONY: clean
 clean:
-	rm -f ledmatrix *.hex
+	rm -f ledmatrix *.hex poc *.o testpoc
 
 .PHONY: deploy
 deploy: ledmatrix.hex
 	avrdude -c $(PROGRAMMER) -p $(TARGET_DEVICE) -P $(DEVICE_FILE) -b $(BAUD_RATE) -U flash:w:$< -v
+
+poc: CPPFLAGS += $(shell sdl2-config --cflags)
+#poc: CPPFLAGS += -pthread
+poc: LDLIBS += $(shell sdl2-config --libs)
+
+.PHONY: check
+check: run-testpoc
+
+.PHONY: run-testpoc
+run-testpoc: testpoc
+	./testpoc
+
+testpoc: LDLIBS += -lCppUTest
