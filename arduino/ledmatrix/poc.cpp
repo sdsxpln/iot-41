@@ -1,3 +1,5 @@
+#include "math.h"
+
 #include <SDL.h>
 
 #include <array>
@@ -117,17 +119,22 @@ struct Model {
 		return frameBuffer_[v32 + v32 + v32 + u];
 	}
 
-	void update() { phi_ += delta() / 2.0; }
-	double phi() const { return phi_; }
+	void update() { phi_ += delta(); }
+	uint8_t phi() const { return phi_; }
 	void rotateLeft() { --state_; }
 	void rotateRight() { ++state_; }
 
 private:
-	double desiredPhi() const { return state_ * M_PI / 2.0; }
-	double delta() const { return desiredPhi() - phi(); }
+	int16_t desiredPhi() const { return state_ * Math::pi() / 2; }
+
+	int16_t delta() const {
+		int16_t d = desiredPhi() - phi_;
+		if (d > 1 || d < -1) d /= 2;
+		return d;
+	}
 
 	std::array<char, 96 * 96> frameBuffer_;
-	double phi_{};
+	int16_t phi_{};
 	int state_{};
 };
 
@@ -152,13 +159,11 @@ private:
 	render(const Model& m)
 	{
 		const auto phi = m.phi();
-		const int16_t u0 = 128 + 256 * 47.501 * (1.0 + std::sqrt(2) * std::cos(phi+5*M_PI/4));
-		const int16_t v0 = 128 + 256 * 47.501 * (1.0 + std::sqrt(2) * std::sin(phi+5*M_PI/4));
-		const int16_t du = 256 * std::cos(phi);
-		const int16_t dv = 256 * std::sin(phi);
+		const int16_t du = math_.du(phi);
+		const int16_t dv = math_.dv(phi);
 
-		int16_t u = u0;
-		int16_t v = v0;
+		int16_t u = math_.u0(phi);
+		int16_t v = math_.v0(phi);
 		for (int y = 0; y != 32; ++y) {
 			int16_t um = u;
 			int16_t vm = v;
@@ -194,6 +199,7 @@ private:
 
 	const Model& model_;
 	SdlRenderer& rend_;
+	const Math math_;
 };
 
 struct SdlEvents {
