@@ -8,6 +8,7 @@ CPPFLAGS += -Wall -Wextra -pedantic -Werror
 CXXFLAGS += -std=c++14
 CPPFLAGS += -Os
 CPPFLAGS += -g
+CPPFLAGS += -MMD
 
 .PHONY: all
 all: ledmatrix.hex poc
@@ -26,7 +27,7 @@ ledmatrix.hex: ledmatrix
 
 .PHONY: clean
 clean:
-	rm -f ledmatrix *.hex poc *.o testpoc
+	rm -f ledmatrix *.hex poc *.o testpoc *.d
 
 .PHONY: deploy
 deploy: ledmatrix.hex
@@ -43,4 +44,7 @@ check: run-testpoc
 run-testpoc: testpoc
 	./testpoc
 
+testpoc: testpoc.cpp
 testpoc: LDLIBS += -lCppUTest
+
+-include $(wildcard *.d)
