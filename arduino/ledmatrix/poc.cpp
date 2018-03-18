@@ -30,6 +30,21 @@ operator+(Point<T, N> lhs, const Point<T, N>& rhs)
 	return lhs += rhs;
 }
 
+template <typename T, std::size_t N>
+Point<T, N>&
+operator*=(Point<T, N>& lhs, T rhs)
+{
+	std::transform(lhs.begin(), lhs.end(), lhs.begin(), [rhs](T v){ return rhs * v; });
+	return lhs;
+}
+
+template <typename T, std::size_t N>
+Point<T, N>
+operator*(Point<T, N> lhs, T rhs)
+{
+	return lhs *= rhs;
+}
+
 using Point2i = Point<int, 2>;
 
 using SdlWindow = std::unique_ptr<SDL_Window, void(*)(SDL_Window*)>;
@@ -41,10 +56,10 @@ struct Sdl {
 	~Sdl() { SDL_Quit(); }
 
 	SdlWindow
-	createWindow(const char* title, int w, int h)
+	createWindow(const char* title, Point2i dim)
 	{
 		const auto u = SDL_WINDOWPOS_UNDEFINED;
-		SDL_Window* window = SDL_CreateWindow(title, u, u, w, h, SDL_WINDOW_SHOWN);
+		SDL_Window* window = SDL_CreateWindow(title, u, u, dim[0], dim[1], SDL_WINDOW_SHOWN);
 		if (!window) throw std::runtime_error("SDL_CreateWindow");
 		return SdlWindow(window, SDL_DestroyWindow);
 	}
@@ -94,25 +109,22 @@ struct Model {
 	}
 
 	char
-	operator()(int u, int v)
+	operator()(uint8_t u, uint8_t v)
 	const
 	{
-		if (u < 0 || u >= 96 || v < 0 || v >= 96) return 0;
-		return frameBuffer_[v * 96 + u];
+		if (u >= 96 || v >= 96) return 0;
+		const uint16_t v32 = v << 5;
+		return frameBuffer_[v32 + v32 + v32 + u];
 	}
 
-	void
-	update()
-	{
-		phi_ += (desiredPhi() - phi_) / 3.0;
-	}
-
+	void update() { phi_ += delta() / 2.0; }
 	double phi() const { return phi_; }
 	void rotateLeft() { --state_; }
 	void rotateRight() { ++state_; }
 
 private:
-	double desiredPhi() const { return state_ * std::acos(-1.0) / 2.0; }
+	double desiredPhi() const { return state_ * M_PI / 2.0; }
+	double delta() const { return desiredPhi() - phi(); }
 
 	std::array<char, 96 * 96> frameBuffer_;
 	double phi_{};
@@ -131,8 +143,7 @@ struct SdlView {
 		rend_.present();
 	}
 
-	static int width() { return 64 * cellsize + 1; }
-	static int height() { return 32 * cellsize + 1; }
+	static Point2i dimensions() { return Point2i{ 64, 32 } * cellsize + Point2i{ 1, 1 }; }
 
 private:
 	static const int cellsize = 10;
@@ -140,10 +151,9 @@ private:
 	void
 	render(const Model& m)
 	{
-		const auto pi = std::acos(-1.0);
 		const auto phi = m.phi();
-		const int16_t u0 = 128 + 256 * 47.501 * (1.0 + std::sqrt(2) * std::cos(phi+5*pi/4));
-		const int16_t v0 = 128 + 256 * 47.501 * (1.0 + std::sqrt(2) * std::sin(phi+5*pi/4));
+		const int16_t u0 = 128 + 256 * 47.501 * (1.0 + std::sqrt(2) * std::cos(phi+5*M_PI/4));
+		const int16_t v0 = 128 + 256 * 47.501 * (1.0 + std::sqrt(2) * std::sin(phi+5*M_PI/4));
 		const int16_t du = 256 * std::cos(phi);
 		const int16_t dv = 256 * std::sin(phi);
 
@@ -153,14 +163,20 @@ private:
 			int16_t um = u;
 			int16_t vm = v;
 			for (int x = 0; x != 64; ++x) {
-				rend_.setDrawColor(getColor(m(um >> 8, vm >> 8)));
-				rend_.fillRect(SDL_Rect{x * cellsize + 1, y * cellsize + 1, cellsize - 1, cellsize - 1});
+				putPixel({x, y}, m(um >> 8, vm >> 8));
 				um += du;
 				vm += dv;
 			}
 			u -= dv;
 			v += du;
 		}
+	}
+
+	void
+	putPixel(Point2i p, char c)
+	{
+		rend_.setDrawColor(getColor(c));
+		rend_.fillRect(SDL_Rect{p[0] * cellsize + 1, p[1] * cellsize + 1, cellsize - 1, cellsize - 1});
 	}
 
 	SdlColor
@@ -247,8 +263,6 @@ private:
 			break;
 		case SDLK_LEFT: model_.rotateLeft(); break;
 		case SDLK_RIGHT: model_.rotateRight(); break;
-/*		case SDLK_DOWN: model_.drop(); break;
-		case SDLK_UP: model_.rotate(); break;*/
 		}
 	}
 
@@ -260,14 +274,14 @@ int
 main()
 {
 	Sdl sdl;
-	auto window = sdl.createWindow("ledmatrix", SdlView::width(), SdlView::height());
+	auto window = sdl.createWindow("ledmatrix", SdlView::dimensions());
 	SdlRenderer rend(window);
 	Model model;
 	SdlControl control(model);
 	SdlView view(model, rend);
 	for (int i = 0; !control.shouldQuit(); ++i) {
 		control.update();
-		if (!(i & 1)) model.update();
+		model.update();
 		view.render();
 	}
 }
