@@ -174,12 +174,13 @@ private:
 
 	void
 	putPixel(Point2i p, char c)
+	const
 	{
 		rend_.setDrawColor(getColor(c));
 		rend_.fillRect(SDL_Rect{p[0] * cellsize + 1, p[1] * cellsize + 1, cellsize - 1, cellsize - 1});
 	}
 
-	SdlColor
+	static SdlColor
 	getColor(char c)
 	{
 		switch (c) {
