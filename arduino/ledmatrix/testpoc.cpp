@@ -7,26 +7,26 @@
 
 struct Math {
 	Math() {
-		std::generate(std::begin(sintab), std::end(sintab), [phi = 0.0]() mutable {
+		std::generate(dtab_.begin(), dtab_.end(), [phi = 0.0]() mutable {
 			const auto p = phi;
 			phi += M_PI / 128;
 			return 256.0 * std::sin(p);
 		});
+		std::generate(p0tab_.begin(), p0tab_.end(), [phi = 0.0]() mutable {
+			const auto p = phi;
+			phi += M_PI / 128;
+			return 128.0 + 256.0 * 47.501 * (1.0 + sqrt(2) * sin(p+5*M_PI/4));
+		});
 	}
 
-	int16_t u0(double phi) const {
-		return 128.0 + 256.0 * 47.501 * (1.0 + sqrt(2) * cos(phi+5*M_PI/4));
-	}
-
-	int16_t v0(double phi) const {
-		return 128.0 + 256.0 * 47.501 * (1.0 + sqrt(2) * sin(phi+5*M_PI/4));
-	}
-
-	int16_t du(double phi) const { return sintab[uint8_t(64.0 + 128.0 * phi / M_PI)]; }
-	int16_t dv(double phi) const { return sintab[uint8_t(128.0 * phi / M_PI)]; }
+	int16_t u0(double phi) const { return p0tab_[uint8_t(64.0 + 128.0 * phi / M_PI)]; }
+	int16_t v0(double phi) const { return p0tab_[uint8_t(128.0 * phi / M_PI)]; }
+	int16_t du(double phi) const { return dtab_[uint8_t(64.0 + 128.0 * phi / M_PI)]; }
+	int16_t dv(double phi) const { return dtab_[uint8_t(128.0 * phi / M_PI)]; }
 
 private:
-	std::array<int16_t, 256> sintab;
+	std::array<int16_t, 256> dtab_;
+	std::array<int16_t, 256> p0tab_;
 };
 
 TEST_GROUP(Math) {};
