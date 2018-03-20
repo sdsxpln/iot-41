@@ -15,28 +15,29 @@ struct Math {
 			return 256.0 * std::sin(n++ * M_PI / pi());
 		});
 		std::generate(p0tab_.begin(), p0tab_.end(), [n = 0]() mutable {
-			const double phi = n++ * M_PI / pi();
-			return 128.0 + 256.0 * 47.501 * (1.0 + sqrt(2) * sin(phi+5*M_PI/4));
+			return 128 + int16_t(256.0 * 47.5 * (1.0 + sqrt(2) * sin(n++ * M_PI / pi())));
 		});
 	}
 
-	int16_t u0(uint8_t phi) const { return v0((pi() / 2 + phi) & 255); }
-	int16_t v0(uint8_t phi) const { return p0tab_[phi]; }
-	int16_t du(uint8_t phi) const { return dv((pi() / 2 + phi) & 255); }
-	int16_t dv(uint8_t phi) const { return d(phi); }
+	int16_t u0(uint8_t phi) const { return v0(phi + pi() / 2); }
+	int16_t v0(uint8_t phi) const { return lookup(p0tab_, 24576, phi + pi() / 4 * 5); }
+	int16_t du(uint8_t phi) const { return dv(phi + pi() / 2); }
+	int16_t dv(uint8_t phi) const { return lookup(dtab_, 0, phi); }
 
 private:
-	int16_t d(uint8_t phi) const {
-		return (phi < 128) ? d2(phi) : -d2(phi - 128);
+	using Table = std::array<int16_t, 65>;
+
+	static int16_t lookup(const Table& t, int16_t mid, uint8_t phi) {
+		return (phi < 128) ? lookup2(t, phi) : (mid - lookup2(t, phi - 128));
 	}
 
-	int16_t d2(uint8_t phi) const {
+	static int16_t lookup2(const Table& t, uint8_t phi) {
 		assert(phi < 128);
-		return (phi <= 64) ? dtab_[phi] : dtab_[127 - phi];
+		return (phi <= 64) ? t[phi] : t[128 - phi];
 	}
 
-	std::array<int16_t, 65> dtab_;
-	std::array<int16_t, 256> p0tab_;
+	Table dtab_;
+	Table p0tab_;
 };
 
 #endif // LEDMATRIX_MATH_H
