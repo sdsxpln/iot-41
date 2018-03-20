@@ -8,11 +8,13 @@
 #include <cassert>
 
 struct Table {
-	template <class G>
-	Table(G generator, int16_t mid = 0)
+	static constexpr uint8_t pi() { return 128; }
+
+	template <class Generator>
+	Table(Generator g, int16_t mid = 0)
 	: mid_(mid)
 	{
-		std::generate(tab_.begin(), tab_.end(), generator);
+		std::generate(tab_.begin(), tab_.end(), [g, n = 0]() mutable { return g(std::sin(n++ * M_PI / pi())); });
 	}
 
 	int16_t lookup(uint8_t phi) const {
@@ -30,17 +32,15 @@ private:
 };
 
 struct Math {
-	static constexpr uint8_t pi() { return 128; }
-
 	Math()
-	: dtab_([n = 0]() mutable { return 256.0 * std::sin(n++ * M_PI / pi()); })
-	, p0tab_([n = 0]() mutable { return 128 + int16_t(256.0 * 47.5 * (1.0 + sqrt(2) * sin(n++ * M_PI / pi()))); }, 24576)
+	: dtab_([](double sin) { return 256.0 * sin; })
+	, p0tab_([](double sin) { return 128 + int16_t(256.0 * 47.5 * (1.0 + sqrt(2.0) * sin)); }, 24576)
 	{
 	}
 
-	int16_t u0(uint8_t phi) const { return v0(phi + pi() / 2); }
-	int16_t v0(uint8_t phi) const { return p0tab_.lookup(phi + pi() / 4 * 5); }
-	int16_t du(uint8_t phi) const { return dv(phi + pi() / 2); }
+	int16_t u0(uint8_t phi) const { return v0(phi + Table::pi() / 2); }
+	int16_t v0(uint8_t phi) const { return p0tab_.lookup(phi + Table::pi() / 4 * 5); }
+	int16_t du(uint8_t phi) const { return dv(phi + Table::pi() / 2); }
 	int16_t dv(uint8_t phi) const { return dtab_.lookup(phi); }
 
 private:

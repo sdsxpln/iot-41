@@ -125,7 +125,7 @@ struct Model {
 	void rotateRight() { ++state_; }
 
 private:
-	int16_t desiredPhi() const { return state_ * Math::pi() / 2; }
+	int16_t desiredPhi() const { return state_ * Table::pi() / 2; }
 
 	int16_t delta() const {
 		int16_t d = desiredPhi() - phi_;
