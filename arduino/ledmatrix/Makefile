@@ -13,6 +13,9 @@ CPPFLAGS += -MMD
 .PHONY: all
 all: ledmatrix.hex poc
 
+ledmatrix: ledmatrix.o
+	$(CXX) $(LDFLAGS) $^ $(LDLIBS) $(OUTPUT_OPTION)
+
 ledmatrix: CC := avr-gcc
 ledmatrix: CXX := avr-g++
 ledmatrix: CPPFLAGS += -mmcu=$(TARGET_DEVICE) -DF_CPU=$(CPUFREQ)
@@ -33,6 +36,9 @@ clean:
 deploy: ledmatrix.hex
 	avrdude -c $(PROGRAMMER) -p $(TARGET_DEVICE) -P $(DEVICE_FILE) -b $(BAUD_RATE) -U flash:w:$< -v
 
+poc: poc.o
+	$(CXX) $(LDFLAGS) $^ $(LDLIBS) $(OUTPUT_OPTION)
+
 poc: CPPFLAGS += $(shell sdl2-config --cflags)
 #poc: CPPFLAGS += -pthread
 poc: LDLIBS += $(shell sdl2-config --libs)
@@ -44,7 +50,9 @@ check: run-testpoc
 run-testpoc: testpoc
 	./testpoc
 
-testpoc: testpoc.cpp
+testpoc: testpoc.o
+	$(CXX) $(LDFLAGS) $^ $(LDLIBS) $(OUTPUT_OPTION)
+
 testpoc: LDLIBS += -lCppUTest
 
 -include $(wildcard *.d)
