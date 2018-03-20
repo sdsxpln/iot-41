@@ -46,8 +46,8 @@ struct Math {
 	int16_t dv(uint8_t phi) const { return dtab_.sin(phi); }
 
 private:
-	Table dtab_;
-	Table p0tab_;
+	const Table dtab_;
+	const Table p0tab_;
 };
 
 #endif // LEDMATRIX_MATH_H
