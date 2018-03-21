@@ -107,16 +107,24 @@ private:
 struct Model {
 	Model()
 	{
-		std::copy(std::begin(sample_data), std::end(sample_data), frameBuffer_.begin());
+		const uint8_t* src = sample_data;
+		for (int y = 0; y != 96; ++y) {
+			for (int x = 0; x != 96 / 4; ++x) {
+				frameBuffer_[(y << 5) + x] = (src[0])
+					| (src[1] << 2)
+					| (src[2] << 4)
+					| (src[3] << 6);
+				src += 4;
+			}
+		}
 	}
 
-	char
+	uint8_t
 	operator()(uint8_t u, uint8_t v)
 	const
 	{
 		if (u >= 96 || v >= 96) return 0;
-		const uint16_t v32 = v << 5;
-		return frameBuffer_[v32 + v32 + v32 + u];
+		return (frameBuffer_[(v << 5) + (u >> 2)] >> ((u << 1) & 6)) & 3;
 	}
 
 	void update() { phi_ += delta(); }
@@ -133,7 +141,7 @@ private:
 		return increment ? increment : d;
 	}
 
-	std::array<char, 96 * 96> frameBuffer_;
+	std::array<uint8_t, 128 * 96 / 4> frameBuffer_;
 	int16_t phi_{};
 	int state_{};
 };
@@ -178,7 +186,7 @@ private:
 	}
 
 	void
-	putPixel(Point2i p, char c)
+	putPixel(Point2i p, uint8_t c)
 	const
 	{
 		rend_.setDrawColor(getColor(c));
