@@ -128,9 +128,9 @@ private:
 	int16_t desiredPhi() const { return state_ * Table::pi() / 2; }
 
 	int16_t delta() const {
-		int16_t d = desiredPhi() - phi_;
-		if (d > 1 || d < -1) d /= 2;
-		return d;
+		const int16_t d = desiredPhi() - phi_;
+		const int16_t increment = d / 4;
+		return increment ? increment : d;
 	}
 
 	std::array<char, 96 * 96> frameBuffer_;
