@@ -170,18 +170,27 @@ private:
 		const int16_t du = math_.du(phi);
 		const int16_t dv = math_.dv(phi);
 
-		int16_t u = math_.u0(phi);
-		int16_t v = math_.v0(phi);
-		for (int y = 0; y != 32; ++y) {
-			int16_t um = u;
-			int16_t vm = v;
+		int16_t u1 = math_.u0(phi);
+		int16_t v1 = math_.v0(phi);
+		int16_t u2 = u1 - (dv << 4);
+		int16_t v2 = v1 + (du << 4);
+		for (int y = 0; y != 16; ++y) {
+			int16_t um1 = u1;
+			int16_t vm1 = v1;
+			int16_t um2 = u2;
+			int16_t vm2 = v2;
 			for (int x = 0; x != 64; ++x) {
-				putPixel({x, y}, m(um >> 8, vm >> 8));
-				um += du;
-				vm += dv;
+				putPixel({x, y}, m(um1 >> 8, vm1 >> 8));
+				putPixel({x, y + 16}, m(um2 >> 8, vm2 >> 8));
+				um1 += du;
+				vm1 += dv;
+				um2 += du;
+				vm2 += dv;
 			}
-			u -= dv;
-			v += du;
+			u1 -= dv;
+			v1 += du;
+			u2 -= dv;
+			v2 += du;
 		}
 	}
 
