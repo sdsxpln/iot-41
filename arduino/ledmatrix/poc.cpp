@@ -1,4 +1,6 @@
-#include "math.h"
+#define PROGMEM
+#define pgm_read_byte *
+#include "model.h"
 
 #include <SDL.h>
 
@@ -102,98 +104,20 @@ private:
 	std::unique_ptr<SDL_Renderer, void(*)(SDL_Renderer*)> rend_;
 };
 
-#include "sample.h"
+static const int cellsize = 10;
 
-struct Model {
-	Model()
-	{
-		const uint8_t* src = sample_data;
-		for (int y = 0; y != 96; ++y) {
-			for (int x = 0; x != 96 / 4; ++x) {
-				frameBuffer_[(y << 5) + x] = (src[0])
-					| (src[1] << 2)
-					| (src[2] << 4)
-					| (src[3] << 6);
-				src += 4;
-			}
-		}
-	}
+struct SdlPixelPairRenderPolicy {
+	SdlPixelPairRenderPolicy(SdlRenderer& rend) : rend_(rend) {}
 
-	uint8_t
-	operator()(uint8_t u, uint8_t v)
+	void
+	putPixelPair(int16_t x, int16_t y, uint8_t c)
 	const
 	{
-		if (u >= 96 || v >= 96) return 0;
-		return (frameBuffer_[(v << 5) + (u >> 2)] >> ((u << 1) & 6)) & 3;
+		putPixel({x, y}, c & 3);
+		putPixel({x, y + 16}, (c >> 2) & 3);
 	}
-
-	void update() { phi_ += delta(); }
-	uint8_t phi() const { return phi_; }
-	void rotateLeft() { --state_; }
-	void rotateRight() { ++state_; }
 
 private:
-	int16_t desiredPhi() const { return state_ * Table::pi() / 2; }
-
-	int16_t delta() const {
-		const int16_t d = desiredPhi() - phi_;
-		const int16_t increment = d / 4;
-		return increment ? increment : d;
-	}
-
-	std::array<uint8_t, 128 * 96 / 4> frameBuffer_;
-	int16_t phi_{};
-	int state_{};
-};
-
-struct SdlView {
-	SdlView(const Model& model, SdlRenderer& rend) : model_(model), rend_(rend) {}
-
-	void
-	render()
-	{
-		rend_.setDrawColor(SdlColor::black());
-		rend_.clear();
-		render(model_);
-		rend_.present();
-	}
-
-	static Point2i dimensions() { return Point2i{ 64, 32 } * cellsize + Point2i{ 1, 1 }; }
-
-private:
-	static const int cellsize = 10;
-
-	void
-	render(const Model& m)
-	{
-		const auto phi = m.phi();
-		const int16_t du = math_.du(phi);
-		const int16_t dv = math_.dv(phi);
-
-		int16_t u1 = math_.u0(phi);
-		int16_t v1 = math_.v0(phi);
-		int16_t u2 = u1 - (dv << 4);
-		int16_t v2 = v1 + (du << 4);
-		for (int y = 0; y != 16; ++y) {
-			int16_t um1 = u1;
-			int16_t vm1 = v1;
-			int16_t um2 = u2;
-			int16_t vm2 = v2;
-			for (int x = 0; x != 64; ++x) {
-				putPixel({x, y}, m(um1 >> 8, vm1 >> 8));
-				putPixel({x, y + 16}, m(um2 >> 8, vm2 >> 8));
-				um1 += du;
-				vm1 += dv;
-				um2 += du;
-				vm2 += dv;
-			}
-			u1 -= dv;
-			v1 += du;
-			u2 -= dv;
-			v2 += du;
-		}
-	}
-
 	void
 	putPixel(Point2i p, uint8_t c)
 	const
@@ -214,9 +138,28 @@ private:
 		assert(!"invalid cell");
 	}
 
-	const Model& model_;
 	SdlRenderer& rend_;
-	const Math math_;
+};
+
+using SdlModel = Model<SdlPixelPairRenderPolicy>;
+
+struct SdlView {
+	SdlView(SdlModel& model, SdlRenderer& rend) : model_(model), rend_(rend) {}
+
+	void
+	render()
+	{
+		rend_.setDrawColor(SdlColor::black());
+		rend_.clear();
+		model_.show();
+		rend_.present();
+	}
+
+	static Point2i dimensions() { return Point2i{ 64, 32 } * cellsize + Point2i{ 1, 1 }; }
+
+private:
+	SdlModel& model_;
+	SdlRenderer& rend_;
 };
 
 struct SdlEvents {
@@ -260,7 +203,7 @@ requestSdlQuit()
 }
 
 struct SdlControl {
-	SdlControl(Model& model) : model_(model) {}
+	SdlControl(SdlModel& model) : model_(model) {}
 
 	void update() { for (const auto& ev : SdlEvents()) process(ev); }
 
@@ -290,7 +233,7 @@ private:
 		}
 	}
 
-	Model& model_;
+	SdlModel& model_;
 	bool quit_{};
 };
 
@@ -300,7 +243,8 @@ main()
 	Sdl sdl;
 	auto window = sdl.createWindow("ledmatrix", SdlView::dimensions());
 	SdlRenderer rend(window);
-	Model model;
+	SdlPixelPairRenderPolicy spprp(rend);
+	SdlModel model(spprp);
 	SdlControl control(model);
 	SdlView view(model, rend);
 	for (int i = 0; !control.shouldQuit(); ++i) {
