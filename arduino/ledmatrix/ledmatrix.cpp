@@ -1,4 +1,5 @@
 #include "font3x5.h"
+#include "sample.h"
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -18,14 +19,11 @@ const int lat = 6; // st_cp | stb
 const int oe = 7;
 
 // fast portb
-const int g1 = 8;
-const int g2 = 9;
-const int r1 = 10;
-const int r2 = 11;
+const int r1 = 8;
+const int g1 = 9;
+const int r2 = 10;
+const int g2 = 11;
 const int clk = 12; // sh_cp
-
-// oe 13 -> 7
-// clk 7 -> 12
 
 class Bitmap {
 public:
@@ -49,15 +47,10 @@ public:
 		if (x < 0 || x >= width || y < 0 || y >= height) return;
 		size_t offset = (y * width + x) * 4;
 		if (offset >= width * height * 2) {
-			offset -= width * height * 2 - 1;
+			offset -= width * height * 2 - 2;
 		}
-		if (c & green) {
-			buffer_[offset / 8] |= 1 << (offset % 8);
-		}
-		if (c & red) {
-			offset += 2;
-			buffer_[offset / 8] |= 1 << (offset % 8);
-		}
+		const uint8_t b = buffer_[offset / 8] & ~(3 << (offset % 8));
+		buffer_[offset / 8] = b | (c << (offset % 8));
 	}
 
 	void
@@ -78,9 +71,7 @@ public:
 			const uint8_t line = pgm_read_byte(bm) >> ((!(ch & 1)) * 4);
 			bm += 64 / 2;
 			for (int x = 0; x < 3; ++x) {
-				if (line & (1 << (3 - x))) {
-					set(x0 + x, y0 + y, c);
-				}
+				set(x0 + x, y0 + y, (line & (1 << (3 - x))) ? c : black);
 			}
 		}
 	}
@@ -160,9 +151,46 @@ private:
 	uint8_t buffer_[width * height / 4];
 };
 
-class Display {
-public:
+struct Display {
 	Display()
+	: nextRowToScan_()
+	{
+		DDRB = 0x1f;
+		DDRD = 0xfc;
+	}
+
+	void
+	scan()
+	{
+		Bitmap::const_iterator i = bitmap_[active_].beginRow(nextRowToScan_);
+		for (int x = 0; x < 64; ++x) {
+			shift(*i++);
+		}
+		const uint8_t value = (nextRowToScan_ << 2);
+		PORTD = 0xc0 | value; // oe=HIGH lat=HIGH
+		PORTD = value; // oe=LOW lat=LOW
+		nextRowToScan_ = (nextRowToScan_ + 1) & 0xf;
+	}
+
+	void
+	shift(uint8_t value)
+	{
+		PORTB = value; // clk=LOW
+		PORTB = 0x10 | value; // clk=HIGH
+	}
+
+	Bitmap& bitmap() { return bitmap_[1 - active_]; }
+
+	void swap() { active_ = 1 - active_; }
+
+private:
+	unsigned nextRowToScan_;
+	Bitmap bitmap_[2];
+	int active_{};
+};
+/*
+struct Display2 {
+	Display2()
 	: nextRowToScan_()
 	{
 		DDRB = 0x1f;
@@ -190,10 +218,8 @@ public:
 
 private:
 	unsigned nextRowToScan_;
-	Bitmap bitmap_[2];
-	int active_{};
 };
-
+*/
 static Display disp;
 static long counter;
 
@@ -229,7 +255,7 @@ loop()
 	futar_print_line(1, 244, "ORS VEZER T", 7);
 	futar_print_line(7, 144, "ORS VEZER T", 12);
 	futar_print_line(13, 244, "ORS VEZER T", 13);
-	futar_print_line(19, 46, "NYIRPALOTA", 20);
+	futar_print_line(19, 46, "NYIRPALOTA UT", 20);
 	futar_print_line(25, 244, "ORS VEZER T", 25);
 	disp.swap();
 }
